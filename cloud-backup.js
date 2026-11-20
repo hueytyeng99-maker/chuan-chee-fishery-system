@@ -117,7 +117,12 @@ async function cloudRequest(path, options = {}) {
     try { body = await res.json(); } catch {}
     throw new Error(body.message || body.details || body.hint || `云端请求失败 (${res.status})`);
   }
-  return res.status === 204 ? null : res.json();
+  // PostgREST uses `return=minimal` for the backup upsert and may respond with
+  // an empty body on success. Read text first so an empty successful response
+  // is not misreported as a JSON parse failure after the write has completed.
+  const responseText = await res.text();
+  if (!responseText) return null;
+  try { return JSON.parse(responseText); } catch { return null; }
 }
 async function cloudGetSnapshot() {
   const uid = cloudSession.user.id;
